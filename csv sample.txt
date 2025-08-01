@@ -1,3 +1,0 @@
-piece,bars,penta,modal_ambiguity,parallel_motion,sparse_texture,irregular_rhythm,irregular_dynamics,silence_use,timbre_writing,influenced
-"Pagodes","4-8",2,2,1,1,0,1,0,2,1
-"La Mer","16-20",0,1,0,0,0,0,0,1,0
