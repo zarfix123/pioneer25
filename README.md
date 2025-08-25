@@ -50,12 +50,6 @@ Outputs:
 - `feature_importance.csv`: Importance rankings
 - `importance_by_fold.csv`: Fold-by-fold importance values
 
-### Data Preprocessing
-```bash
-python parse_labels.py
-```
-Validates and cleans the dataset, ensures proper feature ordering.
-Outputs: `data/cleaned_dataset.csv`
 
 ## Model Performance
 
