@@ -1,25 +1,66 @@
-## Segment Labeling Rubric
+# East Asian Influence Detection in Classical Music
 
-**Piece:** `_________________________`  
-**Bars:** `______ --- ______`
+Machine learning model that detects East Asian musical influence using symbolic features extracted from musical scores.
 
-| Feature                 | Description                                                                 | Score (0–2) |
-|------------------------|-----------------------------------------------------------------------------|-------------|
-| Pentatonicism          | Presence of pentatonic scale patterns or melodic cells                      |             |
-| Modal Ambiguity        | Unclear tonality, lack of strong functional harmony                         |             |
-| Parallel Motion        | Prominent use of parallel intervals (4ths, 5ths, octaves)                   |             |
-| Sparse Texture         | Open, transparent scoring (e.g. solo lines, space between notes)            |             |
-| Irregular Rhythm       | Non-standard meter, unexpected rhythmic groupings                           |             |
-| Irregular Dynamics     | Sudden loud/soft shifts or non-terraced dynamic shapes                      |             |
-| Use of Silence         | Intentional rests/gaps that shape musical phrasing                          |             |
-| Timbre/Texture Writing | Use of bell-like timbres, gongs, non-Western textures or tone color layering|             |
+## Dataset
 
----
+The model expects labeled CSV files with these columns in order:
+- `piece`: Musical work name  
+- `start`, `end`: Measure numbers for 4-bar segments
+- `pentatonicism`: Pentatonic scale usage (0-2)
+- `parallel_motion`: Parallel voice movement (0-2) 
+- `density`: Harmonic/textural complexity (0-2)
+- `rhythm_reg`: Rhythm regularity (0-2)
+- `syncopation`: Off-beat emphasis (0-2)
+- `melodic_intervals`: Size of melodic jumps (0-2)
+- `register_usage`: Range of pitches used (0-2)
+- `articulation`: Legato vs. detached playing (0-2)
+- `dynamics`: Volume variation markings (0-2)
+- `influence`: Binary label (0=Western, 1=East Asian influenced)
 
-### Final Label:
+Required data files:
+- `data/western data.csv`: Western classical segments
+- `data/influenced data.csv`: East Asian influenced segments
 
-**Influenced?** `☐ Yes (1)` `☐ No (0)`
+## Usage
 
-**Notes:**  
-`________________________________________________________________________`  
-`________________________________________________________________________`
+### Training
+```bash
+python train_model.py
+```
+Outputs:
+- `FINAL_MODEL.joblib`: Trained Extra Trees classifier
+- `FINAL_MODEL_INFO.json`: Model metadata and performance metrics
+
+### Evaluation  
+```bash
+python evaluate_model.py
+```
+Prints accuracy, F1 score, classification report, and confusion matrix.
+Outputs: `confusion_matrix.png`
+
+### Feature Analysis
+```bash
+python analyze_features.py
+```
+Analyzes feature importance and stability across cross-validation folds.
+Outputs:
+- `feature_importances.png`: Global importance bar chart
+- `importance_stability.png`: Cross-fold variation plot
+- `feature_importance.csv`: Importance rankings
+- `importance_by_fold.csv`: Fold-by-fold importance values
+
+### Data Preprocessing
+```bash
+python parse_labels.py
+```
+Validates and cleans the dataset, ensures proper feature ordering.
+Outputs: `data/cleaned_dataset.csv`
+
+## Model Performance
+
+The Extra Trees classifier achieves ~89% accuracy using grouped cross-validation to prevent data leakage between musical pieces. Key features for detecting East Asian influence include pentatonicism, parallel motion, and register usage patterns.
+
+## Citation
+
+*Paper citation will be added upon publication.*
