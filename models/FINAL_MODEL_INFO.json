@@ -1,0 +1,25 @@
+{
+  "model_type": "ExtraTrees",
+  "cv_f1": 0.42428571428571427,
+  "test_accuracy": 0.7758620689655172,
+  "test_f1": 0.7936507936507936,
+  "feature_names": [
+    "pentatonicism",
+    "parallel_motion",
+    "density",
+    "rhythm_reg",
+    "syncopation",
+    "melodic_intervals",
+    "register_usage",
+    "articulation",
+    "dynamics"
+  ],
+  "hyperparameters": {
+    "n_estimators": 200,
+    "min_samples_split": 10,
+    "min_samples_leaf": 2,
+    "max_features": null,
+    "max_depth": null,
+    "class_weight": "balanced"
+  }
+}
