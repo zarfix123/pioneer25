@@ -1,0 +1,32 @@
+{
+  "holdout": {
+    "n": 61,
+    "tn": 16,
+    "fp": 8,
+    "fn": 13,
+    "tp": 24,
+    "accuracy": 0.656,
+    "precision": 0.750,
+    "recall": 0.649,
+    "f1": 0.696,
+    "auprc": 0.875,
+    "auroc": 0.809,
+    "prevalence": 0.607,
+    "precision_at_0.5": 0.758,
+    "recall_at_0.5": 0.676
+  },
+  "oof_cv": {
+    "n": 104,
+    "tn": 53,
+    "fp": 21,
+    "fn": 12,
+    "tp": 18,
+    "accuracy": 0.683,
+    "precision": 0.462,
+    "recall": 0.600,
+    "f1": 0.522,
+    "auprc": 0.480,
+    "auroc": 0.711,
+    "prevalence": 0.288
+  }
+}

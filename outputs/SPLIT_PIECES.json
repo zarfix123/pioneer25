@@ -1,0 +1,20 @@
+{
+  "random_state": 42,
+  "test_size": 0.35,
+  "train_pieces": [
+    "Canope",
+    "Clavier",
+    "Cloches",
+    "Hungarian",
+    "Laider",
+    "Moonlight",
+    "Waldstein"
+  ],
+  "test_pieces": [
+    "Bach_Chorale",
+    "Invention",
+    "Mozart",
+    "Pagodes",
+    "Quifut"
+  ]
+}

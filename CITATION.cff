@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use this code or dataset, please cite it."
+type: software
+title: "Quantifying East Asian Influence — Code and Derived Features"
+abstract: >
+  Code and derived feature tables for the paper "Quantifying East Asian
+  Influence with Machine Learning and Symbolic Analysis."
+  Includes scripts to reproduce grouped cross-validation metrics, the hold-out
+  confusion matrix, feature importance/stability analyses, and piece-level
+  timelines from a 9-feature symbolic representation.
+authors:
+  - family-names: Freyman
+    given-names: Dennis
+    email: zarfix.42@gmail.com
+repository-code: "https://github.com/zarfix123/pioneer25"
+license: MIT
+keywords:
+  - music information retrieval
+  - musicology
+  - cross-cultural influence
+  - machine learning
+  - symbolic music
+version: v1.0.0
+commit: YOURCOMMITSHA
+date-released: 2025-09-10
+preferred-citation:
+  type: software
+  authors:
+    - family-names: Freyman
+      given-names: Dennis
+  title: "Quantifying East Asian Influence — Code and Derived Features"
+  version: v1.0.0
+  repository-code: "https://github.com/zarfix123/pioneer25"
+  date-released: 2025

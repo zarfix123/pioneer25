@@ -1,0 +1,18 @@
+{
+  "train_pieces": [
+    "Canope",
+    "Clavier",
+    "Cloches",
+    "Hungarian",
+    "Invention",
+    "Laider",
+    "Moonlight",
+    "Waldstein"
+  ],
+  "test_pieces": [
+    "Bach_Chorale",
+    "Mozart",
+    "Pagodes",
+    "Quifut"
+  ]
+}
