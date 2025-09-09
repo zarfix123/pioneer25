@@ -37,7 +37,6 @@ outputs/
   feature_rank_spearman.csv
 code/
   train_model.py
-  analyze_features.py
 ```
 
 ## Setup
