@@ -1,144 +1,256 @@
 #!/usr/bin/env python3
 """
-Model Training Pipeline for East Asian Musical Influence Classification
+Model Training Pipeline (Leak-Free, Option 1)
 
-Trains Extra Trees model with optimal hyperparameters and saves final model.
+- Freeze grouped Train/Test split by piece
+- Tune on Train only with StratifiedGroupKFold
+- Evaluate once on frozen Test
+- Save Test predictions and Train OoF predictions for visualization
 """
 
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold, RandomizedSearchCV
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
-from sklearn.metrics import accuracy_score, f1_score
-import joblib
+import os
 import json
 import warnings
 warnings.filterwarnings('ignore')
 
+import numpy as np
+import pandas as pd
+
+from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold, RandomizedSearchCV, cross_val_predict
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from sklearn.metrics import (
+    accuracy_score, balanced_accuracy_score, f1_score, precision_recall_fscore_support,
+    confusion_matrix, average_precision_score, roc_auc_score
+)
+import joblib
+import sklearn
+
 RANDOM_STATE = 42
+TEST_SIZE = 0.35  # use 0.35 if that's your final protocol; change to 0.30 if you prefer
+BASE = "/home/dennis/Projects/research"
+DATA_DIR = f"{BASE}/data"
+CODE_DIR = f"{BASE}/code"
+OUT_DIR  = f"{BASE}/outputs"
+os.makedirs(OUT_DIR, exist_ok=True)
+
+FEATURES = [
+    "pentatonicism", "parallel_motion", "density", "rhythm_reg",
+    "syncopation", "melodic_intervals", "register_usage",
+    "articulation", "dynamics"
+]
 
 def load_data():
-    """Load and preprocess labeled CSV data."""
-    western_data = pd.read_csv('/home/dennis/Projects/research/data/western data.csv')
-    influenced_data = pd.read_csv('/home/dennis/Projects/research/data/influenced data.csv')
-    combined_data = pd.concat([western_data, influenced_data], ignore_index=True)
-    
-    # Clean influence labels
-    labels = combined_data['influence'].astype(str).str.extract(r'^\s*([01])')[0]
-    combined_data['influence'] = pd.to_numeric(labels, errors='coerce')
-    
-    # Define feature columns
-    feature_names = ['pentatonicism', 'parallel_motion', 'density', 'rhythm_reg', 
-                    'syncopation', 'melodic_intervals', 'register_usage', 
-                    'articulation', 'dynamics']
-    
-    X = combined_data[feature_names]
-    y = combined_data['influence']
-    groups = combined_data['piece']
-    
-    print(f"Dataset: {len(X)} samples")
-    print(f"Classes: {sum(y == 0)} non-influenced, {sum(y == 1)} influenced")
-    
-    return X, y, feature_names, groups
+    west = pd.read_csv(f"{DATA_DIR}/western data.csv")
+    infl = pd.read_csv(f"{DATA_DIR}/influenced data.csv")
+    df = pd.concat([west, infl], ignore_index=True)
 
-def train_model(X, y, groups, feature_names):
-    """Train model with grouped cross-validation and hyperparameter tuning."""
-    # Split data by piece groups
-    gss = GroupShuffleSplit(n_splits=1, test_size=0.3, random_state=RANDOM_STATE)
-    train_idx, test_idx = next(gss.split(X, y, groups=groups))
-    X_train, X_test = X.values[train_idx], X.values[test_idx]
-    y_train, y_test = y.values[train_idx], y.values[test_idx]
-    groups_train = groups.values[train_idx]
-    
-    # Grouped cross-validation
+    # clean binary labels from {0,1} strings
+    labels = df["influence"].astype(str).str.extract(r"^\s*([01])")[0]
+    df["influence"] = pd.to_numeric(labels, errors="coerce")
+
+    # minimal sanity
+    assert set(df["influence"].dropna().unique()) <= {0,1}, "Labels must be 0/1"
+
+    X = df[FEATURES].copy()
+    y = df["influence"].astype(int).values
+    groups = df["piece"].astype(str).values
+
+    # keep meta for saving preds
+    meta_cols = ["piece", "start", "end"]
+    for c in meta_cols:
+        if c not in df.columns:
+            df[c] = np.nan
+    meta = df[["piece", "start", "end"]].copy()
+
+    print(f"Dataset: {len(X)} segments | classes: {(y==0).sum()} non-inf, {(y==1).sum()} inf")
+    print(f"Pieces: {df['piece'].nunique()}")
+
+    return df, X, y, groups, meta
+
+def freeze_split(groups):
+    gss = GroupShuffleSplit(n_splits=1, test_size=TEST_SIZE, random_state=RANDOM_STATE)
+    train_idx, test_idx = next(gss.split(np.zeros_like(groups), np.zeros_like(groups), groups=groups))
+    return train_idx, test_idx
+
+def hyperparam_search(X_train, y_train, groups_train):
     cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
-    
-    # Hyperparameter search spaces
+
+    rf = RandomForestClassifier(random_state=RANDOM_STATE)
+    et = ExtraTreesClassifier(random_state=RANDOM_STATE)
+
     rf_space = {
-        'n_estimators': [50, 100, 200, 400],
-        'max_depth': [None, 6, 10, 16, 24],
+        'n_estimators': [100, 200, 400],
+        'max_depth': [None, 10, 16, 24],
         'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 2, 4],
-        'max_features': ['sqrt', 'log2', 0.7, None],
+        'max_features': ['sqrt', 'log2', 0.7, 1.0],
         'class_weight': ['balanced', None]
     }
-    
+
     et_space = {
         'n_estimators': [200, 400, 800],
         'max_depth': [None, 10, 16, 24],
         'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 2, 4],
-        'max_features': ['sqrt', 'log2', 0.7, None],
+        'max_features': ['sqrt', 'log2', 0.7, 1.0],  # 1.0 == all features
         'class_weight': ['balanced', None]
     }
-    
-    # Train and tune models
-    rf = RandomForestClassifier(random_state=RANDOM_STATE)
-    et = ExtraTreesClassifier(random_state=RANDOM_STATE)
-    
-    rf_search = RandomizedSearchCV(rf, rf_space, n_iter=25, scoring='f1', cv=cv, 
-                                  random_state=RANDOM_STATE, n_jobs=-1)
-    et_search = RandomizedSearchCV(et, et_space, n_iter=20, scoring='f1', cv=cv,
-                                  random_state=RANDOM_STATE, n_jobs=-1)
-    
-    print("Training RandomForest...")
-    rf_search.fit(X_train, y_train, groups=groups_train)
-    
-    print("Training ExtraTrees...")
-    et_search.fit(X_train, y_train, groups=groups_train)
-    
-    # Select best model
-    if et_search.best_score_ > rf_search.best_score_:
-        best_model = et_search.best_estimator_
-        best_params = et_search.best_params_
-        model_type = 'ExtraTrees'
-        cv_score = et_search.best_score_
-    else:
-        best_model = rf_search.best_estimator_
-        best_params = rf_search.best_params_
-        model_type = 'RandomForest'
-        cv_score = rf_search.best_score_
-    
-    # Evaluate on test set
-    best_model.fit(X_train, y_train)
-    y_pred = best_model.predict(X_test)
-    test_accuracy = accuracy_score(y_test, y_pred)
-    test_f1 = f1_score(y_test, y_pred)
-    
-    print(f"Best model: {model_type}")
-    print(f"CV F1: {cv_score:.3f}")
-    print(f"Test accuracy: {test_accuracy:.3f}")
-    print(f"Test F1: {test_f1:.3f}")
-    
-    return best_model, {
-        'model_type': model_type,
-        'cv_f1': cv_score,
-        'test_accuracy': test_accuracy,
-        'test_f1': test_f1,
-        'feature_names': feature_names,
-        'hyperparameters': best_params
-    }
 
-def save_model(model, model_info):
-    """Save trained model and metadata."""
-    # Save model
-    model_path = '/home/dennis/Projects/research/code/FINAL_MODEL.joblib'
-    joblib.dump(model, model_path)
-    
-    # Save metadata
-    info_path = '/home/dennis/Projects/research/code/FINAL_MODEL_INFO.json'
-    with open(info_path, 'w') as f:
-        json.dump(model_info, f, indent=2)
-    
-    print(f"Model saved: {model_path}")
-    print(f"Metadata saved: {info_path}")
+    rf_search = RandomizedSearchCV(
+        rf, rf_space, n_iter=20, scoring='f1', cv=cv,
+        random_state=RANDOM_STATE, n_jobs=-1, refit=True
+    )
+    et_search = RandomizedSearchCV(
+        et, et_space, n_iter=20, scoring='f1', cv=cv,
+        random_state=RANDOM_STATE, n_jobs=-1, refit=True
+    )
+
+    print("Tuning RandomForest (train-only CV)...")
+    rf_search.fit(X_train, y_train, groups=groups_train)
+
+    print("Tuning ExtraTrees (train-only CV)...")
+    et_search.fit(X_train, y_train, groups=groups_train)
+
+    if et_search.best_score_ >= rf_search.best_score_:
+        best = et_search
+        model_type = "ExtraTrees"
+    else:
+        best = rf_search
+        model_type = "RandomForest"
+
+    print(f"Best model: {model_type}  | CV F1: {best.best_score_:.3f}")
+    return model_type, best.best_estimator_, best.best_params_, best.best_score_
+
+def eval_on_test(model, X_test, y_test):
+    y_prob = model.predict_proba(X_test)[:,1]
+    y_pred = (y_prob >= 0.5).astype(int)  # threshold policy: 0.5; adjust if you later calibrate
+
+    acc  = accuracy_score(y_test, y_pred)
+    bacc = balanced_accuracy_score(y_test, y_pred)
+    p0,r0,f10,_ = precision_recall_fscore_support(y_test, y_pred, labels=[0], average=None, zero_division=0)
+    p1,r1,f11,_ = precision_recall_fscore_support(y_test, y_pred, labels=[1], average=None, zero_division=0)
+    ap   = average_precision_score(y_test, y_prob)  # AUPRC (positive=1)
+    try:
+        auc  = roc_auc_score(y_test, y_prob)
+    except ValueError:
+        auc = np.nan
+    cm = confusion_matrix(y_test, y_pred, labels=[0,1])
+
+    metrics = {
+        "accuracy": acc,
+        "balanced_accuracy": bacc,
+        "precision_noninf": p0[0], "recall_noninf": r0[0], "f1_noninf": f10[0],
+        "precision_inf": p1[0],    "recall_inf": r1[0],   "f1_inf":  f11[0],
+        "auprc_inf": ap, "auroc": auc,
+        "confusion_matrix": cm.tolist()
+    }
+    return metrics, y_pred, y_prob
+
+def majority_vote_piece_level(meta, y_true, y_pred):
+    df = meta.copy()
+    df["y_true"] = y_true
+    df["y_pred"] = y_pred
+    agg = df.groupby("piece").agg(
+        true=('y_true', lambda v: int(np.round(v.mean()))),  # if piece is mixed this is coarse
+        pred=('y_pred', lambda v: int(np.round(v.mean())))
+    ).reset_index()
+    piece_acc = (agg["true"] == agg["pred"]).mean()
+    return piece_acc, agg
 
 def main():
-    print("=== East Asian Influence Model Training ===")
-    X, y, feature_names, groups = load_data()
-    model, model_info = train_model(X, y, groups, feature_names)
-    save_model(model, model_info)
-    print("Training complete!")
+    print("=== Leak-free training (Option 1) ===")
+    raw, X, y, groups, meta = load_data()
+
+    # 1) Freeze grouped split and save it
+    train_idx, test_idx = freeze_split(groups)
+    X_train, X_test = X.values[train_idx], X.values[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
+    groups_train = groups[train_idx]
+    meta_train, meta_test = meta.iloc[train_idx].reset_index(drop=True), meta.iloc[test_idx].reset_index(drop=True)
+
+    split_info = {
+        "random_state": RANDOM_STATE,
+        "test_size": TEST_SIZE,
+        "train_pieces": sorted(set(groups[train_idx].tolist())),
+        "test_pieces": sorted(set(groups[test_idx].tolist()))
+    }
+    with open(f"{OUT_DIR}/SPLIT_PIECES.json", "w") as f:
+        json.dump(split_info, f, indent=2)
+    print(f"Saved split pieces to {OUT_DIR}/SPLIT_PIECES.json")
+
+    # 2) Hyperparam tuning on Train only
+    model_type, best_estimator, best_params, cv_f1 = hyperparam_search(X_train, y_train, groups_train)
+
+    # 3) Fit final model on all Train
+    best_estimator.fit(X_train, y_train)
+
+    # 4) Evaluate once on frozen Test
+    test_metrics, test_pred, test_prob = eval_on_test(best_estimator, X_test, y_test)
+    print("=== TEST metrics (frozen) ===")
+    for k,v in test_metrics.items():
+        if k != "confusion_matrix":
+            print(f"{k}: {v:.3f}" if isinstance(v,float) else f"{k}: {v}")
+    print(f"confusion_matrix (rows=[noninf,inf], cols=[pred0,pred1]): {test_metrics['confusion_matrix']}")
+
+    # 5) Save Test predictions for figures
+    test_out = meta_test.copy()
+    test_out["y_true"] = y_test
+    test_out["proba_infl"] = test_prob
+    test_out["proba_noninfl"] = 1.0 - test_prob
+    test_out["y_pred"] = test_pred
+    test_out["mode"] = "test"
+    test_out.to_csv(f"{OUT_DIR}/TEST_PREDICTIONS.csv", index=False)
+    print(f"Saved test predictions to {OUT_DIR}/TEST_PREDICTIONS.csv")
+
+    # (optional) piece-level majority vote on Test
+    piece_acc, piece_table = majority_vote_piece_level(meta_test, y_test, test_pred)
+    print(f"Piece-level accuracy (test, majority vote): {piece_acc:.3f}")
+    piece_table.to_csv(f"{OUT_DIR}/TEST_PIECE_VOTE.csv", index=False)
+
+    # 6) Train OoF predictions on Train for visualization
+    #    (same hyperparams; grouped CV; out-of-fold predicted probabilities)
+    cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+    base = best_estimator.__class__(**best_estimator.get_params())
+    oof_prob = cross_val_predict(
+        base, X_train, y_train, groups=groups_train, cv=cv,
+        method="predict_proba", n_jobs=-1
+    )[:,1]
+    oof_pred = (oof_prob >= 0.5).astype(int)
+    train_oof = meta_train.copy()
+    train_oof["y_true"] = y_train
+    train_oof["proba_infl"] = oof_prob
+    train_oof["proba_noninfl"] = 1.0 - oof_prob
+    train_oof["y_pred"] = oof_pred
+    train_oof["mode"] = "oof_train"
+    train_oof.to_csv(f"{OUT_DIR}/TRAIN_OOF_PREDICTIONS.csv", index=False)
+    print(f"Saved train OoF predictions to {OUT_DIR}/TRAIN_OOF_PREDICTIONS.csv")
+
+    # 7) Save model + info (with exact hyperparams and versions)
+    model_path = f"{CODE_DIR}/FINAL_MODEL.joblib"
+    info_path  = f"{CODE_DIR}/FINAL_MODEL_INFO.json"
+
+    joblib.dump(best_estimator, model_path)
+
+    model_info = {
+        "model_type": model_type,
+        "feature_names": FEATURES,
+        "hyperparameters": best_params,
+        "cv_train_f1": cv_f1,
+        "test_metrics": test_metrics,
+        "split_info_path": f"{OUT_DIR}/SPLIT_PIECES.json",
+        "predictions": {
+            "test": f"{OUT_DIR}/TEST_PREDICTIONS.csv",
+            "train_oof": f"{OUT_DIR}/TRAIN_OOF_PREDICTIONS.csv"
+        },
+        "random_state": RANDOM_STATE,
+        "sklearn_version": sklearn.__version__
+    }
+    with open(info_path, "w") as f:
+        json.dump(model_info, f, indent=2)
+
+    print(f"Saved model: {model_path}")
+    print(f"Saved metadata: {info_path}")
+    print("Done.")
 
 if __name__ == "__main__":
     main()

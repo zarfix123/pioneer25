@@ -1,60 +1,85 @@
 # East Asian Influence Detection in Classical Music
 
-Machine learning model that detects East Asian musical influence using symbolic features extracted from musical scores.
+Detects East Asian musical influence in Western piano works using 9 symbolic features and a tree-ensemble classifier. Repo includes frozen splits, predictions, figures, and analysis artifacts for full reproducibility without retraining.
 
-## Dataset
+## Data format
 
-The model expects labeled CSV files with these columns in order:
-- `piece`: Musical work name  
-- `start`, `end`: Measure numbers for 4-bar segments
-- `pentatonicism`: Pentatonic scale usage (0-2)
-- `parallel_motion`: Parallel voice movement (0-2) 
-- `density`: Harmonic/textural complexity (0-2)
-- `rhythm_reg`: Rhythm regularity (0-2)
-- `syncopation`: Off-beat emphasis (0-2)
-- `melodic_intervals`: Size of melodic jumps (0-2)
-- `register_usage`: Range of pitches used (0-2)
-- `articulation`: Legato vs. detached playing (0-2)
-- `dynamics`: Volume variation markings (0-2)
-- `influence`: Binary label (0=Western, 1=East Asian influenced)
+One CSV with all labeled segments:
 
-Required data files:
-- `data/western data.csv`: Western classical segments
-- `data/influenced data.csv`: East Asian influenced segments
+Required columns (in order):
+`piece,start,end,pentatonicism,parallel_motion,density,rhythm_reg,syncopation,melodic_intervals,register_usage,articulation,dynamics,influence`
 
-## Usage
+Required files:
 
-### Training
-```bash
-python train_model.py
+* `data/features_9x.csv` — full dataset
+* `data/segments_manifest.csv` — `piece,start,end` (one row per segment; mirrors `features_9x.csv`)
+
+## Repo layout (key files)
+
 ```
-Outputs:
-- `FINAL_MODEL.joblib`: Trained Extra Trees classifier
-- `FINAL_MODEL_INFO.json`: Model metadata and performance metrics
-
-### Evaluation  
-```bash
-python evaluate_model.py
+data/
+  features_9x.csv
+  segments_manifest.csv
+models/
+  FINAL_MODEL.joblib
+  FINAL_MODEL_INFO.json
+outputs/
+  predictions_test.csv
+  predictions_oof.csv
+  metrics_summary.json
+  piece_level_metrics.csv
+  permutation_importance_test.csv
+  feature_importances_cv.csv
+  feature_ranks_cv.csv
+  root_splits_per_fold.csv
+  root_splits_overall.csv
+  early_tree_splits_overall.csv
+  feature_rank_spearman.csv
+code/
+  train_model.py
+  analyze_features.py
 ```
-Prints accuracy, F1 score, classification report, and confusion matrix.
-Outputs: `confusion_matrix.png`
 
-### Feature Analysis
+## Setup
+
 ```bash
-python analyze_features.py
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 ```
-Analyzes feature importance and stability across cross-validation folds.
-Outputs:
-- `feature_importances.png`: Global importance bar chart
-- `importance_stability.png`: Cross-fold variation plot
-- `feature_importance.csv`: Importance rankings
-- `importance_by_fold.csv`: Fold-by-fold importance values
+
+## Train (optional)
 
 
-## Model Performance
+```bash
+python code/train_model.py
+```
 
-The Extra Trees classifier achieves ~89% accuracy using grouped cross-validation to prevent data leakage between musical pieces. Key features for detecting East Asian influence include pentatonicism, parallel motion, and register usage patterns.
+This writes:
+
+* `data/splits/SPLIT_PIECES.json` (piece-level frozen split)
+* `models/FINAL_MODEL.joblib` (trained estimator)
+* `models/FINAL_MODEL_INFO.json` (algo, hyperparams, versions, split hash, metrics)
+* `outputs/predictions_test.csv` and `outputs/predictions_oof.csv`
+
+## Results
+
+Headline metrics are stored in:
+
+* `outputs/metrics_summary.json` (hold-out + grouped CV)
+* `code/images/confusion_matrix.png`
+* Per-piece: `outputs/piece_level_metrics.csv`
+
+## Notes on reproducibility
+
+* Grouped, leak-free protocol (by `piece`) for split, CV, and OoF.
+* `data/splits/SPLIT_PIECES.json` is frozen; predictions/figures are generated from committed CSVs, not in-sample fits.
+* Random seed: `42`. Library versions in `models/FINAL_MODEL_INFO.json`.
 
 ## Citation
 
-*Paper citation will be added upon publication.*
+Please cite the repository release (see `CITATION.cff`).
+Paper citation will be added upon publication.
+
+## LicenseSPLIT_PIECES
+
+MIT (see `LICENSE`).

@@ -1,8 +1,5 @@
 {
-  "model_type": "ExtraTrees",
-  "cv_f1": 0.42428571428571427,
-  "test_accuracy": 0.7758620689655172,
-  "test_f1": 0.7936507936507936,
+  "model_type": "RandomForest",
   "feature_names": [
     "pentatonicism",
     "parallel_motion",
@@ -16,10 +13,40 @@
   ],
   "hyperparameters": {
     "n_estimators": 200,
-    "min_samples_split": 10,
-    "min_samples_leaf": 2,
-    "max_features": null,
-    "max_depth": null,
-    "class_weight": "balanced"
-  }
+    "min_samples_split": 5,
+    "min_samples_leaf": 1,
+    "max_features": 1.0,
+    "max_depth": 10,
+    "class_weight": null
+  },
+  "cv_train_f1": 0.4225641025641026,
+  "test_metrics": {
+    "accuracy": 0.6557377049180327,
+    "balanced_accuracy": 0.6576576576576576,
+    "precision_noninf": 0.5517241379310345,
+    "recall_noninf": 0.6666666666666666,
+    "f1_noninf": 0.6037735849056604,
+    "precision_inf": 0.75,
+    "recall_inf": 0.6486486486486487,
+    "f1_inf": 0.6956521739130435,
+    "auprc_inf": 0.8746659161207215,
+    "auroc": 0.8085585585585585,
+    "confusion_matrix": [
+      [
+        16,
+        8
+      ],
+      [
+        13,
+        24
+      ]
+    ]
+  },
+  "split_info_path": "/home/dennis/Projects/research/outputs/SPLIT_PIECES.json",
+  "predictions": {
+    "test": "/home/dennis/Projects/research/outputs/TEST_PREDICTIONS.csv",
+    "train_oof": "/home/dennis/Projects/research/outputs/TRAIN_OOF_PREDICTIONS.csv"
+  },
+  "random_state": 42,
+  "sklearn_version": "1.7.1"
 }

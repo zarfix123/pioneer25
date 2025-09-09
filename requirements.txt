@@ -1,15 +1,15 @@
 # Machine Learning and Data Analysis
-pandas>=1.5.0
-numpy>=1.24.0
-scikit-learn>=1.3.0
-scipy>=1.10.0
-joblib>=1.2.0
+pandas==2.2.3
+numpy==1.26.4
+scikit-learn==1.7.1
+scipy==1.8.0
+joblib==1.5.1
 
 # Visualization
-matplotlib>=3.6.0
+matplotlib==3.5.1
 
 # Music Processing
-music21>=9.1.0
+music21==9.7.1
 
 # Core Python libraries (usually included)
 # json - built-in
